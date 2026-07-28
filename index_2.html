@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>체험단 트래커</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,1,0" rel="stylesheet">
+<style>
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+body {
+  font-family: 'Noto Sans KR', sans-serif;
+  background: #eef0f7;
+  min-height: 100dvh;
+  margin: 0;
+  overflow-x: hidden;
+}
+
+/* 스크롤 컨테이너 */
+#viewport {
+  height: 100dvh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 120px;
+}
+#viewport::-webkit-scrollbar { display: none; }
+
+/* 헤더 애니메이션 */
+#mainHeader {
+  transition: transform 0.4s cubic-bezier(0.16,1,0.3,1), opacity 0.3s ease;
+  will-change: transform;
+}
+#mainHeader.hidden-header {
+  transform: translateY(-100%);
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  width: 100%;
+}
+
+/* 스티키 필터 */
+.sticky-bar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: #eef0f7;
+  will-change: transform;
+}
+
+/* 카드 */
+.glass-card {
+  background: #ffffff;
+  border: 1px solid rgba(0,0,0,0.06);
+}
+
+/* 카드 등장 애니메이션 */
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(18px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.card-in {
+  animation: fadeUp 0.55s cubic-bezier(0.23,1,0.32,1) forwards;
+  opacity: 0;
+}
+
+/* 프로그레스 바 */
+.prog-track {
+  height: 5px;
+  border-radius: 99px;
+  background: rgba(0,0,0,0.06);
+  overflow: hidden;
+}
+.prog-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* 필터 탭 */
+.tab-btn {
+  transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+  white-space: nowrap;
+}
+.tab-btn.on {
+  background: #1a1c1e;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+
+/* 스와이프 */
+.sw-wrap { position: relative; overflow: hidden; border-radius: 22px; }
+.sw-actions {
+  position: absolute; right:0; top:0; bottom:0;
+  display: flex; align-items: stretch;
+  opacity: 0; pointer-events: none;
+  border-radius: 0 22px 22px 0; overflow: hidden;
+}
+.sw-wrap.open .sw-actions { opacity:1; pointer-events:all; }
+.sw-action {
+  width: 68px; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:3px;
+  border:none; cursor:pointer;
+  font-family:'Noto Sans KR',sans-serif;
+  font-size:11px; font-weight:700;
+}
+.sw-action:active { filter:brightness(0.92); }
+
+/* FAB */
+.fab {
+  position: fixed;
+  bottom: 28px; right: 24px;
+  width: 60px; height: 60px;
+  border-radius: 20px;
+  background: #1a1c1e;
+  color: #fff;
+  border: none;
+  display: flex; align-items:center; justify-content:center;
+  box-shadow: none;
+  cursor: pointer;
+  z-index: 100;
+  transition: transform 0.12s;
+}
+.fab:active { transform: scale(0.9); }
+
+/* 모달 */
+.overlay {
+  position: fixed; inset:0;
+  background: rgba(0,0,0,0.38);
+  z-index: 200;
+  display: flex; align-items: flex-end;
+  opacity:0; pointer-events:none;
+  transition: opacity 0.2s;
+}
+.overlay.open { opacity:1; pointer-events:all; }
+.sheet {
+  width:100%;
+  background: #eef0f7;
+  border-radius: 24px 24px 0 0;
+  padding: 0 20px 52px;
+  max-height: 88dvh;
+  overflow-y: auto;
+  transform: translateY(32px);
+  transition: transform 0.28s cubic-bezier(0.34,1.1,0.64,1);
+}
+.overlay.open .sheet { transform: translateY(0); }
+
+.finput {
+  width:100%; background:#fff;
+  border: 1px solid #dde0ef;
+  border-radius: 12px;
+  font-family:'Noto Sans KR',sans-serif;
+  font-size:14px; padding:13px 14px;
+  outline:none; color:#1a1c1e;
+  transition: border-color 0.15s;
+  -webkit-appearance: none;
+}
+.finput:focus { border-color: #1a1c1e; }
+
+/* 토스트 */
+.toast {
+  position:fixed; bottom:98px; left:50%;
+  transform:translateX(-50%) translateY(8px);
+  background:#1a1c1e; color:#fff;
+  padding:9px 20px; border-radius:99px;
+  font-size:13px; font-weight:500;
+  opacity:0; pointer-events:none;
+  transition: all 0.18s; z-index:999;
+  white-space:nowrap;
+}
+.toast.on { opacity:1; transform:translateX(-50%) translateY(0); }
+
+.spin {
+  display:inline-block; width:12px; height:12px;
+  border:1.5px solid rgba(26,28,30,0.2);
+  border-top-color:#1a1c1e;
+  border-radius:50%; animation: rot 0.6s linear infinite;
+}
+@keyframes rot { to { transform:rotate(360deg); } }
+
+.no-scroll::-webkit-scrollbar { display:none; }
+.no-scroll { -ms-overflow-style:none; scrollbar-width:none; }
+</style>
+</head>
+<body>
+
+<div id="viewport">
+
+  <!-- 헤더 -->
+  <header id="mainHeader" class="px-5 pt-12 pb-2 bg-transparent">
+    <div class="mb-5">
+      <h1 class="text-[26px] font-black tracking-tight text-[#1a1c1e] mb-4">
+        체험단 <span style="font-family:'Space Grotesk',sans-serif;color:#0050cb">.</span>
+      </h1>
+      <!-- 요약 3칸 -->
+      <div class="grid grid-cols-3 gap-3">
+        <div class="glass-card rounded-3xl p-4 flex flex-col items-center">
+          <span id="sumActive" class="text-3xl font-black text-[#0050cb] mb-0.5">0</span>
+          <span class="text-[11px] text-gray-500 font-medium">진행 중</span>
+        </div>
+        <div class="glass-card rounded-3xl p-4 flex flex-col items-center">
+          <span id="sumBook" class="text-3xl font-black text-[#0050cb] mb-0.5">0</span>
+          <span class="text-[11px] text-[#0050cb] font-bold">예약 필요</span>
+        </div>
+        <div class="glass-card rounded-3xl p-4 flex flex-col items-center">
+          <span id="sumDone" class="text-3xl font-black text-gray-400 mb-0.5">0</span>
+          <span class="text-[11px] text-gray-500 font-medium">완료</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- 필터 탭 -->
+  <div class="sticky-bar px-5 py-3">
+    <div class="flex gap-2 overflow-x-auto no-scroll">
+      <button class="tab-btn on px-4 py-2 rounded-2xl text-[13px] font-bold" onclick="setFilter('all',this)">전체</button>
+      <button class="tab-btn bg-white border border-gray-200 px-4 py-2 rounded-2xl text-[13px] font-semibold text-gray-500" onclick="setFilter('super',this)">슈퍼멤버스</button>
+      <button class="tab-btn bg-white border border-gray-200 px-4 py-2 rounded-2xl text-[13px] font-semibold text-gray-500" onclick="setFilter('revu',this)">레뷰</button>
+      <button class="tab-btn bg-white border border-gray-200 px-4 py-2 rounded-2xl text-[13px] font-semibold text-gray-500" onclick="setFilter('dinner',this)">디너의여왕</button>
+    </div>
+  </div>
+
+  <!-- 카드 리스트 -->
+  <main class="px-4 pt-3">
+    <div id="cardList"></div>
+
+    <!-- 완료 캠페인 자동삭제 안내 -->
+    <div class="mt-8 pb-4 text-center" id="footerNotice" style="display:none">
+      <div class="inline-flex items-center gap-2 bg-white px-5 py-2.5 rounded-2xl border border-gray-200">
+        <span class="material-symbols-outlined text-[16px] text-blue-500">info</span>
+        <p class="text-[12px] text-gray-500">완료 후 3일이 경과하면 자동 삭제됩니다</p>
+      </div>
+    </div>
+  </main>
+
+</div>
+
+<!-- FAB -->
+<button class="fab" onclick="openAdd()">
+  <span class="material-symbols-outlined text-[28px]">add</span>
+</button>
+
+<div class="toast" id="toast"></div>
+
+<!-- 추가 모달 -->
+<div class="overlay" id="addModal" onclick="bgClose(event,'addModal')">
+  <div class="sheet">
+    <div style="width:32px;height:3px;background:#dde0ef;border-radius:99px;margin:12px auto 20px"></div>
+    <div class="text-[20px] font-black text-[#1a1c1e] mb-6">체험 추가</div>
+
+    <div class="mb-5">
+      <div class="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">캠페인 링크</div>
+      <input class="finput" id="urlInput" type="url" placeholder="https://"
+        oninput="onUrlChange()" onpaste="onPasteUrl()">
+      <div class="text-[11px] text-gray-400 mt-2">카카오톡에서 받은 캠페인 링크를 붙여넣으세요</div>
+      <div class="text-[12px] mt-2 min-h-[18px] flex items-center gap-1.5" id="parseStatus"></div>
+    </div>
+
+    <button class="w-full py-4 rounded-xl bg-[#1a1c1e] text-white font-bold text-[15px] mt-2 transition-opacity"
+      id="addSubmitBtn" onclick="submitAdd()" disabled style="opacity:0.3">추가하기</button>
+    <button class="w-full py-3.5 rounded-xl border border-gray-200 text-gray-500 font-medium text-[14px] mt-2"
+      onclick="closeModal('addModal')">취소</button>
+  </div>
+</div>
+
+<script>
+// ─── 아이콘 (base64는 이전 코드에서 유지) ───
+const ICONS = { super: null, revu: null, dinner: null };
+
+// ─── 상수 ───
+const SRC = { super:'슈퍼멤버스', revu:'레뷰', dinner:'디너의여왕' };
+const SRC_COLOR = {
+  super: { text:'#0050cb', bg:'rgba(0,80,203,0.07)', dot:'#0050cb' },
+  revu:  { text:'#006c49', bg:'rgba(0,108,73,0.07)',  dot:'#006c49' },
+  dinner:{ text:'#b40036', bg:'rgba(180,0,54,0.07)',  dot:'#b40036' },
+};
+const DDAY_STYLE = {
+  red:  { bg:'#0050cb', text:'#fff' },
+  ora:  { bg:'rgba(0,80,203,0.10)', text:'#0050cb' },
+  grn:  { bg:'rgba(0,108,73,0.10)', text:'#006c49' },
+  gray: { bg:'#f0f0f0', text:'#aaa' },
+};
+
+let items = [], filter = 'all', parsedData = null;
+
+const today = () => new Date().toISOString().slice(0,10);
+
+function diffDays(ds) {
+  const n = new Date(); n.setHours(0,0,0,0);
+  return Math.round((new Date(ds+'T00:00:00') - n) / 86400000);
+}
+function fdate(ds) {
+  if (!ds) return '-';
+  const d = new Date(ds+'T00:00:00');
+  return `${d.getMonth()+1}/${d.getDate()}`;
+}
+function bookDL(item) {
+  if (!item.bookDays) return null;
+  const d = new Date(item.deadline+'T00:00:00');
+  d.setDate(d.getDate() - item.bookDays);
+  return d.toISOString().slice(0,10);
+}
+function ddayCls(diff, status) {
+  if (status==='done') return 'gray';
+  if (diff <= 3) return 'red';
+  if (diff <= 7) return 'ora';
+  return 'grn';
+}
+function progPct(item) {
+  if (item.status==='done') return 100;
+  const c = new Date(item.createdAt+'T00:00:00');
+  const dl = new Date(item.deadline+'T00:00:00');
+  const now = new Date(); now.setHours(0,0,0,0);
+  const total = dl-c; if(total<=0) return 100;
+  return Math.min(100,Math.max(0,Math.round(((now-c)/total)*100)));
+}
+function progColor(pct, status) {
+  if (status==='done') return '#006c49';
+  if (pct>=85) return '#0050cb';
+  if (pct>=55) return '#0050cb';
+  return '#0050cb';
+}
+
+// ─── STORAGE ───
+async function load() {
+  try {
+    const r = await window.storage.get('items3');
+    if (r && r.value) items = JSON.parse(r.value);
+    else { items = demo(); await persist(); }
+  } catch { items = demo(); await persist(); }
+}
+async function persist() {
+  try { await window.storage.set('items3', JSON.stringify(items)); } catch {}
+}
+function demo() {
+  const a=n=>{const d=new Date();d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);};
+  return [
+    {id:1,source:'super',name:'강남 모던 이자카야',addr:'서울 강남구 역삼동',
+     deadline:a(2),visitStart:today(),visitEnd:a(5),bookDays:2,weekend:false,
+     benefit:'2인 코스 무료',link:'',status:'pre',createdAt:a(-7),thumb:''},
+    {id:2,source:'revu',name:'성수 브런치 카페 봄날',addr:'서울 성동구 성수동',
+     deadline:a(7),visitStart:today(),visitEnd:a(10),bookDays:1,weekend:true,
+     benefit:'브런치 1인',link:'',status:'review',createdAt:a(-5),thumb:''},
+    {id:3,source:'dinner',name:'이태원 파스타 Onda',addr:'서울 용산구 이태원동',
+     deadline:a(-3),visitStart:a(-12),visitEnd:a(-3),bookDays:2,weekend:true,
+     benefit:'코스 2인',link:'',status:'done',doneAt:a(-1),createdAt:a(-20),thumb:''},
+  ];
+}
+
+// ─── AUTO DELETE ───
+function autoDelete() {
+  const before = items.length;
+  items = items.filter(i => {
+    if (i.status!=='done'||!i.doneAt) return true;
+    return diffDays(i.doneAt) > -3;
+  });
+  if (items.length < before) persist();
+}
+
+// ─── RENDER ───
+function getList() {
+  let l = [...items];
+  if (filter==='super')  l=l.filter(i=>i.source==='super');
+  if (filter==='revu')   l=l.filter(i=>i.source==='revu');
+  if (filter==='dinner') l=l.filter(i=>i.source==='dinner');
+  return l.sort((a,b)=>{
+    if(a.status==='done'&&b.status!=='done') return 1;
+    if(a.status!=='done'&&b.status==='done') return -1;
+    return a.deadline.localeCompare(b.deadline);
+  });
+}
+
+function render() {
+  updateSummary();
+  const area = document.getElementById('cardList');
+  const list = getList();
+
+  if (!list.length) {
+    area.innerHTML = `<div class="text-center py-16 text-gray-400">
+      <div class="text-4xl mb-3">📋</div>
+      <div class="font-semibold text-gray-500 mb-1">항목이 없습니다</div>
+      <div class="text-sm">+ 버튼으로 체험을 추가하세요</div>
+    </div>`;
+    document.getElementById('footerNotice').style.display = 'none';
+    return;
+  }
+
+  const hasDone = list.some(i=>i.status==='done');
+  document.getElementById('footerNotice').style.display = hasDone ? 'block' : 'none';
+
+  area.innerHTML = list.map((item, idx) => {
+    const diff = diffDays(item.deadline);
+    const cls  = ddayCls(diff, item.status);
+    const ds   = DDAY_STYLE[cls];
+    const sc   = SRC_COLOR[item.source];
+    const pct  = progPct(item);
+    const pc   = progColor(pct, item.status);
+    const bd   = bookDL(item);
+    const bdiff= bd ? diffDays(bd) : null;
+    const isDone = item.status==='done';
+
+    // D-day 텍스트
+    const ddTxt = isDone ? 'DONE'
+      : diff<0  ? `D+${Math.abs(diff)}`
+      : diff===0 ? 'D-day'
+      : `D-${diff}`;
+
+    // 썸네일
+    const thumbHTML = item.thumb
+      ? `<img src="${item.thumb}" class="w-full h-full object-cover">`
+      : `<span class="material-symbols-outlined text-gray-300 text-3xl">restaurant</span>`;
+
+    // 태그들
+    const weekendTag = item.weekend===true
+      ? `<div class="flex items-center gap-1 px-3 py-1.5 rounded-xl border text-[12px] font-bold h-8" style="background:rgba(0,108,73,0.05);color:#006c49;border-color:rgba(0,108,73,0.15)">
+          <span class="material-symbols-outlined text-[14px]">event_available</span>주말 가능</div>`
+      : item.weekend===false
+        ? `<div class="flex items-center gap-1 px-3 py-1.5 rounded-xl border text-[12px] font-bold h-8" style="background:rgba(186,26,26,0.05);color:#ba1a1a;border-color:rgba(186,26,26,0.1)">
+            <span class="material-symbols-outlined text-[14px]">calendar_today</span>주말 불가</div>`
+        : '';
+    const bookTag = item.bookDays>0
+      ? `<div class="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-gray-200 text-[12px] font-bold h-8 text-gray-500" style="background:rgba(0,0,0,0.03)">
+          <span class="material-symbols-outlined text-[14px]">schedule</span>${item.bookDays}일 전 예약</div>`
+      : '';
+
+    // 예약 마감 행
+    const bookRow = bd && !isDone
+      ? `<div class="flex items-center justify-between mt-2">
+          <div class="flex items-center gap-1.5">
+            ${bdiff!==null&&bdiff<=0
+              ? `<span class="w-2 h-2 rounded-full bg-red-500 animate-pulse inline-block"></span>
+                 <span class="text-[13px] font-bold text-red-500">예약 마감: ${bdiff<0?'기한 초과':'오늘까지'}</span>`
+              : bdiff<=2
+                ? `<span class="w-2 h-2 rounded-full bg-orange-400 animate-pulse inline-block"></span>
+                   <span class="text-[13px] font-bold text-orange-500">예약 마감: ${fdate(bd)} (${bdiff}일)</span>`
+                : `<span class="text-[13px] text-gray-400">예약 마감: ${fdate(bd)} (${bdiff}일)</span>`
+            }
+          </div>
+          ${bdiff!==null&&bdiff<=2&&!isDone
+            ? `<button onclick="event.stopPropagation();toast('예약 페이지로 이동합니다')"
+                class="px-5 py-2.5 rounded-full text-[13px] font-bold text-white transition-transform active:scale-95"
+                style="background:#0050cb">예약하기</button>` : ''}
+        </div>` : '';
+
+    // 액션 버튼 (완료가 아닐 때)
+    const actionBtn = isDone ? '' : item.status==='review'
+      ? `<div class="flex justify-end mt-3">
+          <button onclick="event.stopPropagation();setStatus(${item.id},'done')"
+            class="px-6 py-2.5 rounded-full text-[13px] font-bold border transition-transform active:scale-95"
+            style="color:#006c49;border-color:rgba(0,108,73,0.3);background:rgba(0,108,73,0.04)">리뷰 작성 완료</button>
+        </div>` : '';
+
+    // 자동삭제
+    const autoDelTxt = isDone&&item.doneAt
+      ? `<div class="text-right text-[11px] text-gray-400 mt-2">${Math.max(0,3+Math.round((new Date(item.doneAt+'T00:00:00')-new Date().setHours(0,0,0,0))/86400000))}일 후 자동 삭제</div>`
+      : '';
+
+    // 스와이프 버튼
+    const swBtns = `
+      <button class="sw-action" style="background:#f0f0ea;color:#666" onclick="setStatus(${item.id},'pre')">
+        <span class="material-symbols-outlined text-[18px]">bookmark</span>예약 전
+      </button>
+      <button class="sw-action" style="background:#ebf4ff;color:#0050cb" onclick="setStatus(${item.id},'review')">
+        <span class="material-symbols-outlined text-[18px]">edit_note</span>리뷰 전
+      </button>
+      <button class="sw-action" style="background:#eaf7f2;color:#006c49" onclick="setStatus(${item.id},'done')">
+        <span class="material-symbols-outlined text-[18px]">check_circle</span>완료
+      </button>
+      <button class="sw-action" style="background:#fff0f0;color:#ba1a1a" onclick="delItem(${item.id})">
+        <span class="material-symbols-outlined text-[18px]">delete</span>삭제
+      </button>`;
+
+    return `
+    <div class="sw-wrap mb-3 card-in" style="animation-delay:${idx*0.08}s" id="sw-${item.id}">
+      <div class="sw-actions">${swBtns}</div>
+      <div class="glass-card rounded-[22px] p-4 relative ${isDone?'opacity-60':''}" data-id="${item.id}">
+
+        <!-- 상단: 썸네일 + 정보 + D-day -->
+        <div class="flex items-start gap-3 mb-4">
+          <!-- 썸네일 -->
+          <div class="w-[52px] h-[52px] rounded-xl bg-gray-100 overflow-hidden flex-shrink-0 flex items-center justify-center border border-gray-200/60">
+            ${thumbHTML}
+          </div>
+
+          <!-- 텍스트 -->
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-1.5 mb-1">
+              <span class="w-3 h-3 rounded-sm flex items-center justify-center" style="background:${sc.bg}">
+                <span class="material-symbols-outlined text-[9px]" style="color:${sc.text};font-variation-settings:'FILL' 1,'wght' 400,'opsz' 20">stars</span>
+              </span>
+              <span class="text-[11px] font-bold tracking-wider uppercase" style="color:${sc.text}">${SRC[item.source]}</span>
+            </div>
+            <h3 class="text-[17px] font-bold text-[#1a1c1e] leading-snug truncate ${isDone?'line-through text-gray-400':''}">${item.name}</h3>
+            ${item.addr?`<div class="flex items-center gap-0.5 mt-0.5">
+              <span class="material-symbols-outlined text-[13px] text-gray-400">location_on</span>
+              <span class="text-[12px] text-gray-400 truncate">${item.addr}</span>
+            </div>`:''}
+          </div>
+
+          <!-- D-day 뱃지 -->
+          <div class="flex-shrink-0 px-3 py-1.5 rounded-xl flex items-center justify-center min-w-[52px]"
+               style="background:${ds.bg}">
+            <span class="text-[14px] font-black leading-none" style="color:${ds.text}">${ddTxt}</span>
+          </div>
+        </div>
+
+        <!-- 태그 -->
+        ${weekendTag||bookTag ? `<div class="flex gap-2 flex-wrap mb-4">${weekendTag}${bookTag}</div>` : ''}
+
+        <!-- 구분선 + 날짜 + 진행바 -->
+        <div class="pt-4 border-t border-gray-100">
+          <div class="flex justify-between items-center mb-1.5">
+            <span class="text-[12px] text-gray-400 font-medium">리뷰 마감</span>
+            <span class="text-[12px] font-bold text-[#1a1c1e]">${fdate(item.deadline)}
+              ${!isDone?`<span style="color:${cls==='red'?'#0050cb':cls==='ora'?'#b87c00':'#555'}">(${diff>=0?diff+'일 남음':'초과'})</span>`:''}
+            </span>
+          </div>
+          ${!isDone?`<div class="prog-track mb-3">
+            <div class="prog-fill" style="width:${pct}%;background:${pc}"></div>
+          </div>`:''}
+          ${bookRow}
+          ${actionBtn}
+          ${autoDelTxt}
+        </div>
+
+      </div>
+    </div>`;
+  }).join('');
+
+  attachSwipe();
+}
+
+function updateSummary() {
+  const active = items.filter(i=>i.status!=='done');
+  const needBk = active.filter(i=>{const b=bookDL(i);return b&&diffDays(b)<=2;}).length;
+  document.getElementById('sumActive').textContent = active.length;
+  document.getElementById('sumBook').textContent   = needBk;
+  document.getElementById('sumDone').textContent   = items.filter(i=>i.status==='done').length;
+}
+
+// ─── SWIPE ───
+function attachSwipe() {
+  document.querySelectorAll('.glass-card[data-id]').forEach(card => {
+    const wrap = card.closest('.sw-wrap');
+    const acts = wrap.querySelector('.sw-actions');
+    const btnCount = acts.querySelectorAll('.sw-action').length;
+    const MAX = btnCount * 68;
+    let sx=0, sy=0, dx=0, dragging=false;
+
+    card.addEventListener('touchstart', e=>{
+      const t=e.touches[0]; sx=t.clientX; sy=t.clientY; dx=0; dragging=false;
+    },{passive:true});
+
+    card.addEventListener('touchmove', e=>{
+      const t=e.touches[0];
+      const cx=t.clientX-sx, cy=t.clientY-sy;
+      if(!dragging){
+        if(Math.abs(cy)>Math.abs(cx)+4) return;
+        if(Math.abs(cx)>5) dragging=true; else return;
+      }
+      if(e.cancelable) e.preventDefault();
+      dx=Math.max(-MAX,Math.min(0,cx));
+      card.style.transform=`translateX(${dx}px)`;
+      acts.style.opacity=Math.min(1,-dx/50).toString();
+    },{passive:false});
+
+    card.addEventListener('touchend',()=>{
+      if(!dragging) return;
+      dx < -MAX*0.35 ? snapOpen(card,wrap,acts,MAX) : snapClose(card,wrap,acts);
+      dragging=false;
+    });
+  });
+
+  document.addEventListener('touchstart',e=>{
+    document.querySelectorAll('.sw-wrap.open').forEach(w=>{
+      if(!w.contains(e.target)) snapClose(w.querySelector('.glass-card'),w,w.querySelector('.sw-actions'));
+    });
+  },{passive:true});
+}
+
+function snapOpen(card,wrap,acts,max){
+  card.style.transition='transform 0.2s ease';
+  card.style.transform=`translateX(-${max}px)`;
+  acts.style.opacity='1'; wrap.classList.add('open');
+  document.querySelectorAll('.sw-wrap.open').forEach(w=>{ if(w!==wrap) snapClose(w.querySelector('.glass-card'),w,w.querySelector('.sw-actions')); });
+  setTimeout(()=>card.style.transition='',220);
+}
+function snapClose(card,wrap,acts){
+  card.style.transition='transform 0.2s ease';
+  card.style.transform='translateX(0)';
+  acts.style.opacity='0'; wrap.classList.remove('open');
+  setTimeout(()=>card.style.transition='',220);
+}
+
+// ─── FILTER ───
+function setFilter(f,el){
+  filter=f;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  render();
+}
+
+// ─── STATUS / DELETE ───
+async function setStatus(id,status){
+  const item=items.find(i=>i.id===id); if(!item) return;
+  item.status=status;
+  if(status==='done') item.doneAt=today(); else delete item.doneAt;
+  await persist(); render();
+  showToast({pre:'예약 전',review:'리뷰 전',done:'완료'}[status]+'으로 변경했습니다');
+}
+async function delItem(id){
+  items=items.filter(i=>i.id!==id);
+  await persist(); render();
+  showToast('삭제했습니다');
+}
+
+// ─── ADD ───
+function openAdd(){
+  parsedData=null;
+  document.getElementById('urlInput').value='';
+  document.getElementById('parseStatus').innerHTML='';
+  document.getElementById('addSubmitBtn').disabled=true;
+  document.getElementById('addSubmitBtn').style.opacity='0.3';
+  document.getElementById('addModal').classList.add('open');
+  setTimeout(()=>document.getElementById('urlInput').focus(),300);
+}
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+function bgClose(e,id){ if(e.target===e.currentTarget) closeModal(id); }
+
+let parseTimer;
+function onUrlChange(){
+  clearTimeout(parseTimer);
+  const url=document.getElementById('urlInput').value.trim();
+  if(!url){ setParseStatus('',''); disableSubmit(); parsedData=null; return; }
+  setParseStatus('loading','');
+  parseTimer=setTimeout(()=>fetchParse(url),800);
+}
+function onPasteUrl(){ setTimeout(()=>{ clearTimeout(parseTimer); const url=document.getElementById('urlInput').value.trim(); if(url){ setParseStatus('loading',''); fetchParse(url); } },60); }
+
+function setParseStatus(type,msg){
+  const el=document.getElementById('parseStatus');
+  el.innerHTML=type==='loading'
+    ? `<span class="spin"></span><span class="text-gray-400">불러오는 중...</span>`
+    : type==='ok'
+      ? `<span class="material-symbols-outlined text-[14px] text-green-500">check_circle</span><span class="text-green-600 font-medium">${msg}</span>`
+      : type==='err'
+        ? `<span class="text-orange-500 text-[11px]">${msg}</span>`
+        : '';
+}
+function disableSubmit(){ const b=document.getElementById('addSubmitBtn'); b.disabled=true; b.style.opacity='0.3'; }
+function enableSubmit(){  const b=document.getElementById('addSubmitBtn'); b.disabled=false; b.style.opacity='1'; }
+
+async function fetchParse(url){
+  try {
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6', max_tokens:800,
+        messages:[{role:'user',content:`한국 체험단 캠페인 URL/텍스트를 파싱해서 JSON만 반환하세요(마크다운 없이):
+{"source":"super|revu|dinner|unknown","name":"업체명","addr":"주소","deadline":"YYYY-MM-DD","visitStart":"YYYY-MM-DD","visitEnd":"YYYY-MM-DD","bookDays":0,"weekend":true,"benefit":"혜택"}
+weekend: 주말가능true, 불가false, 불명null / 오늘:${today()} / 입력:${url}`}]
+      })
+    });
+    const data=await res.json();
+    const p=JSON.parse(data.content[0].text.replace(/```json|```/g,'').trim());
+    parsedData=p;
+    const src=['super','revu','dinner'].includes(p.source)?SRC[p.source]:'플랫폼 미확인';
+    setParseStatus('ok',`${src} · ${p.name||'이름 미확인'}`);
+    enableSubmit();
+  } catch {
+    parsedData={source:guessSource(url),name:'',addr:'',deadline:'',visitStart:'',visitEnd:'',bookDays:0,weekend:null,benefit:''};
+    setParseStatus('err','자동 인식 실패 — 추가 후 수정하세요');
+    enableSubmit();
+  }
+}
+function guessSource(url){
+  if(url.includes('supermembers')) return 'super';
+  if(url.includes('revu')) return 'revu';
+  if(url.includes('dinnerqueen')) return 'dinner';
+  return 'revu';
+}
+
+async function submitAdd(){
+  const url=document.getElementById('urlInput').value.trim(); if(!url) return;
+  const p=parsedData||{};
+  const src=['super','revu','dinner'].includes(p.source)?p.source:guessSource(url);
+  const dl=p.deadline||(()=>{const d=new Date();d.setDate(d.getDate()+14);return d.toISOString().slice(0,10);})();
+
+  items.unshift({
+    id:Date.now(), source:src,
+    name:p.name||url, addr:p.addr||'',
+    deadline:dl, visitStart:p.visitStart||'', visitEnd:p.visitEnd||'',
+    bookDays:p.bookDays||0, weekend:p.weekend??null,
+    benefit:p.benefit||'', link:url,
+    status:'pre', createdAt:today(), thumb:'',
+  });
+  await persist(); render();
+  closeModal('addModal');
+  showToast('추가했습니다');
+}
+
+// ─── TOAST ───
+let tT;
+function showToast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('on'); clearTimeout(tT); tT=setTimeout(()=>el.classList.remove('on'),2000); }
+function toast(msg){ showToast(msg); }
+
+// ─── 헤더 스크롤 숨김 (rAF 쓰로틀) ───
+const vp = document.getElementById('viewport');
+const hdr = document.getElementById('mainHeader');
+let lastY = 0, ticking = false;
+vp.addEventListener('scroll', () => {
+  if (ticking) return;
+  ticking = true;
+  requestAnimationFrame(() => {
+    const y = vp.scrollTop;
+    if (y > lastY && y > 80) hdr.classList.add('hidden-header');
+    else if (y < lastY)      hdr.classList.remove('hidden-header');
+    lastY = y;
+    ticking = false;
+  });
+}, { passive: true });
+
+// ─── INIT ───
+(async()=>{ await load(); autoDelete(); render(); })();
+</script>
+</body>
+</html>
